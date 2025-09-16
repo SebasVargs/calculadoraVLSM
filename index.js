@@ -413,7 +413,197 @@ function calculateVLSM() {
     resultsDiv.innerHTML = info + subnetsTable;
 }
 
-// Permitir calcular con Enter
-document.getElementById('ipv4Input').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') calculateIPv4();
-});
+// Función para actualizar hosts por subred en FLSM
+function updateHostsPerSubnet() {
+    const numSubnets = parseInt(document.getElementById('flsmSubnets').value);
+    const infoDiv = document.getElementById('flsmHostsInfo');
+    const hostsDisplay = document.getElementById('hostsPerSubnetDisplay');
+
+    if (!numSubnets || numSubnets < 2) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+
+    // Calcular bits necesarios para subredes
+    const bitsForSubnets = Math.ceil(Math.log2(numSubnets));
+    const hostBits = 32 - 24 - bitsForSubnets; // Asumiendo /24 como base
+    const hostsPerSubnet = Math.pow(2, hostBits) - 2;
+
+    hostsDisplay.textContent = hostsPerSubnet;
+    infoDiv.style.display = 'block';
+}
+
+// Calcular FLSM
+function calculateFLSM() {
+    const ip = document.getElementById('flsmIP').value.trim();
+    const prefix = parseInt(document.getElementById('flsmPrefix').value);
+    const numSubnets = parseInt(document.getElementById('flsmSubnets').value);
+    const resultsDiv = document.getElementById('flsmResults');
+
+    if (!ip || !prefix || !numSubnets) {
+        resultsDiv.innerHTML = '<div class="error">Por favor, complete todos los campos.</div>';
+        return;
+    }
+
+    if (!isValidIPv4(ip)) {
+        resultsDiv.innerHTML = '<div class="error">Dirección IPv4 inválida.</div>';
+        return;
+    }
+
+    if (prefix < 1 || prefix > 30) {
+        resultsDiv.innerHTML = '<div class="error">El prefijo debe estar entre 1 y 30.</div>';
+        return;
+    }
+
+    if (numSubnets < 2 || numSubnets > 256) {
+        resultsDiv.innerHTML = '<div class="error">El número de subredes debe estar entre 2 y 256.</div>';
+        return;
+    }
+
+    // Calcular bits necesarios para subredes
+    const bitsNeeded = Math.ceil(Math.log2(numSubnets));
+    const newPrefix = prefix + bitsNeeded;
+
+    if (newPrefix > 30) {
+        resultsDiv.innerHTML = '<div class="error">No hay suficientes bits disponibles para crear tantas subredes.</div>';
+        return;
+    }
+
+    const hostBitsPerSubnet = 32 - newPrefix;
+    const hostsPerSubnet = Math.pow(2, hostBitsPerSubnet) - 2;
+    const subnetSize = Math.pow(2, hostBitsPerSubnet);
+
+    // Calcular máscara de subred
+    const mask = Array(4).fill(0);
+    let remainingBits = newPrefix;
+    for (let i = 0; i < 4; i++) {
+        if (remainingBits >= 8) {
+            mask[i] = 255;
+            remainingBits -= 8;
+        } else if (remainingBits > 0) {
+            mask[i] = (255 << (8 - remainingBits)) & 255;
+            remainingBits = 0;
+        }
+    }
+    const subnetMask = mask.join('.');
+
+    // Dirección de red base
+    const octets = ip.split('.').map(Number);
+    const networkOctets = octets.map((octet, i) => octet & mask[i]);
+    const networkAddress = networkOctets.join('.');
+
+    // Broadcast de la red base
+    const broadcastOctets = networkOctets.slice();
+    let carry = Math.pow(2, 32 - prefix) - 1;
+    for (let i = 3; i >= 0; i--) {
+        broadcastOctets[i] += carry & 255;
+        carry = Math.floor(carry / 256);
+    }
+    const broadcastAddress = broadcastOctets.join('.');
+
+    // Información general
+    const info = `
+                <div class="info-box">
+                    <h3>Información de la Red</h3>
+                    <div class="info-row">
+                        <span class="info-label">Dirección IP:</span>
+                        <span class="info-value">${ip}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Dirección de red:</span>
+                        <span class="info-value">${networkAddress}/${prefix}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Máscara de red:</span>
+                        <span class="info-value">${subnetMask}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Dirección de Broadcast:</span>
+                        <span class="info-value">${broadcastAddress}</span>
+                    </div>
+                </div>
+            `;
+
+    // Generar tabla de subredes
+    let currentIP = (networkOctets[0] << 24) + (networkOctets[1] << 16) + (networkOctets[2] << 8) + networkOctets[3];
+
+    let subnetsTable = `
+                <div class="results-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subred</th>
+                                <th>N° de Hosts</th>
+                                <th>IP de red</th>
+                                <th>Máscara</th>
+                                <th>Primer Host</th>
+                                <th>Último Host</th>
+                                <th>Broadcast</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+    // Calcular número de subredes reales que se pueden crear
+    const actualSubnets = Math.pow(2, bitsNeeded);
+    const subnetsToShow = Math.min(numSubnets, actualSubnets);
+
+    for (let i = 0; i < subnetsToShow; i++) {
+        // Dirección de red de la subred
+        const networkAddr = currentIP;
+        const networkIP = [
+            (networkAddr >>> 24) & 255,
+            (networkAddr >>> 16) & 255,
+            (networkAddr >>> 8) & 255,
+            networkAddr & 255
+        ].join('.');
+
+        // Broadcast de la subred
+        const broadcastAddr = networkAddr + subnetSize - 1;
+        const broadcastIP = [
+            (broadcastAddr >>> 24) & 255,
+            (broadcastAddr >>> 16) & 255,
+            (broadcastAddr >>> 8) & 255,
+            broadcastAddr & 255
+        ].join('.');
+
+        // Primera y última host
+        const firstHostAddr = networkAddr + 1;
+        const firstHostIP = [
+            (firstHostAddr >>> 24) & 255,
+            (firstHostAddr >>> 16) & 255,
+            (firstHostAddr >>> 8) & 255,
+            firstHostAddr & 255
+        ].join('.');
+
+        const lastHostAddr = broadcastAddr - 1;
+        const lastHostIP = [
+            (lastHostAddr >>> 24) & 255,
+            (lastHostAddr >>> 16) & 255,
+            (lastHostAddr >>> 8) & 255,
+            lastHostAddr & 255
+        ].join('.');
+
+        subnetsTable += `
+                    <tr>
+                        <td><strong>Subred ${i + 1}</strong></td>
+                        <td>${hostsPerSubnet}</td>
+                        <td>${networkIP}/${newPrefix}</td>
+                        <td>${subnetMask}</td>
+                        <td>${firstHostIP}</td>
+                        <td>${lastHostIP}</td>
+                        <td>${broadcastIP}</td>
+                    </tr>
+                `;
+
+        currentIP += subnetSize;
+    }
+
+    subnetsTable += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+    resultsDiv.innerHTML = info + subnetsTable;
+}

@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="./index.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Calculadora IPv4 y VLSM</h1>
+<div class="container">
+        <h1>Calculadora IPv4 y VLSM Profesional</h1>
         
         <!-- Calculadora IPv4 -->
         <div class="calculator-section">
@@ -16,7 +16,7 @@
             <div class="input-row">
                 <div class="input-group">
                     <label for="ipv4Input">Dirección IPv4:</label>
-                    <input type="text" id="ipv4Input" placeholder="192.168.1.0" oninput="detectMask()">
+                    <input type="text" id="ipv4Input" oninput="detectMask()">
                 </div>
                 <div class="input-group">
                     <label for="maskInput">Máscara de subred detectada:</label>
@@ -34,7 +34,7 @@
             <div class="subnet-input">
                 <div class="input-group">
                     <label for="vlsmIP">Dirección IPv4:</label>
-                    <input type="text" id="vlsmIP" placeholder="192.168.1.0">
+                    <input type="text" id="vlsmIP">
                 </div>
                 <div class="input-group">
                     <label for="vlsmPrefix">Prefijo de red:</label>
@@ -43,7 +43,7 @@
             </div>
             <div class="input-group">
                 <label for="vlsmSubnets">Número de subredes:</label>
-                <input type="number" id="vlsmSubnets" placeholder="2" min="1" max="64" oninput="createHostInputs()">
+                <input type="number" id="vlsmSubnets" placeholder="1" min="1" max="64" oninput="createHostInputs()">
             </div>
             
             <div id="hostsContainer"></div>
@@ -51,6 +51,41 @@
             <button class="btn" onclick="calculateVLSM()">Calcular VLSM</button>
             
             <div id="vlsmResults"></div>
+        </div>
+
+        <!-- Calculadora FLSM -->
+        <div class="calculator-section">
+            <h2 class="section-title">Calculadora FLSM (Máscara de Subred de Longitud Fija)</h2>
+            
+            <div class="subnet-input">
+                <div class="input-group">
+                    <label for="flsmIP">Dirección IPv4:</label>
+                    <input type="text" id="flsmIP">
+                </div>
+                <div class="input-group">
+                    <label for="flsmPrefix">Prefijo de red:</label>
+                    <input type="number" id="flsmPrefix" placeholder="24" min="1" max="30">
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="flsmSubnets">Número de subredes:</label>
+                <input type="number" id="flsmSubnets" placeholder="1" min="2" max="256" oninput="updateHostsPerSubnet()">
+            </div>
+            
+            <div id="flsmHostsInfo" style="display: none;" class="info-box">
+                <div class="info-row">
+                    <span class="info-label">Hosts por subred:</span>
+                    <span class="info-value" id="hostsPerSubnetDisplay">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Rango de prefijo:</span>
+                    <span class="info-value">(1-32)</span>
+                </div>
+            </div>
+            
+            <button class="btn" onclick="calculateFLSM()">Calcular FLSM</button>
+            
+            <div id="flsmResults"></div>
         </div>
     </div>
 
